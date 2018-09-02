@@ -334,12 +334,11 @@ QList<QString> EXP_Translate(QList<int> &carrierPos,int rfidNum,int rate,int ali
             //推演前列车辆
             for(int index = (carrierPos.count() - 2);index >= 0;index--)
             {
-                int goal = carrierPos.at(index+1) - ((index+1) * rate + 1) * RFID_BASE_DEV;
+                int goal = carrierPos.at(index+1) - ((carrierPos.count() - index - 1) * rate + 1) * RFID_BASE_DEV;
                 str = MOV_Translate(carrierPos,index+1,1,goal);
                 outList.append(str);
                 str.clear();
             }
-
 
             break;
         }
