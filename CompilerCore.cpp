@@ -274,9 +274,12 @@ QList<QString> EXP_Translate(QList<int> &carrierPos,int rfidNum,int rate,int ali
     QList<QString> outList;
     outList.clear();
 
-    int dummyLen = int(((1*rate + ((carrierPos.count()-1)*rate)) * (carrierPos.count()-1))/2);
-    int carreirGroupLen = dummyLen + carrierPos.count();
-    if((carreirGroupLen) > rfidNum)
+    int dummyLen_HeadAndTail = int(((1*rate + ((carrierPos.count()-1)*rate)) * (carrierPos.count()-1))/2);
+    int carreirGroupLen_HeadAndTail = dummyLen_HeadAndTail + carrierPos.count();
+    //int dummyLen = int(((1*rate + ((carrierPos.count()-1)*rate)) * (carrierPos.count()-1))/2;
+    //int carreirGroupLen = dummyLen + carrierPos.count();
+
+    if(carreirGroupLen_HeadAndTail > rfidNum && (align==1 || align==3))
     {
         qDebug()<<"超长";
         return outList;
@@ -286,7 +289,7 @@ QList<QString> EXP_Translate(QList<int> &carrierPos,int rfidNum,int rate,int ali
     {
         case INSTRUCT_ALIGN_HEAD:
         {
-            if((carreirGroupLen) > (rfidNum - int(carrierPos.at(0)/RFID_BASE_DEV)))
+            if((carreirGroupLen_HeadAndTail) > (rfidNum - int(carrierPos.at(0)/RFID_BASE_DEV)))
             {
                 qDebug()<<"膨胀头对齐超长";
                 return outList;
@@ -313,12 +316,58 @@ QList<QString> EXP_Translate(QList<int> &carrierPos,int rfidNum,int rate,int ali
         }
         case INSTRUCT_ALIGN_MID:
         {
+            //middleCarrier - 自然计数车辆号 ， 在carrierPos这个List中，是以0为开始计数
+            int middleCarrier = int(double(carrierPos.count())/2.0 + 0.5);
+            qDebug() << middleCarrier;
+
+            int firstGoalCarrierPos = carrierPos.at(middleCarrier-1)-
+                    ((rate*(middleCarrier-1)+rate) * (middleCarrier-1)/2 + (middleCarrier-1))*RFID_BASE_DEV;
+
+            qDebug()<<"firstGoalCarrierPos"<<firstGoalCarrierPos;
+
+            int lastGoalCarrierPos = carrierPos.at(middleCarrier-1)+(((carrierPos.count()-
+                                   middleCarrier+1)*rate)+(carrierPos.count()-middleCarrier))*RFID_BASE_DEV;
+
+            qDebug()<<"lastGoalCarrierPos"<<lastGoalCarrierPos;
+
+            if((firstGoalCarrierPos<0) || (lastGoalCarrierPos > rfidNum *RFID_BASE_DEV))
+            {
+                qDebug()<<"膨胀中对齐超长";
+                return outList;
+            }
+
+            outList.append(CMG_Translate(carrierPos.count()));
+
+            //设置中间载体车
+            QString str = MOV_Translate(carrierPos,middleCarrier,1,carrierPos.at(middleCarrier-1));
+            outList.append(str);
+            str.clear();
+
+            //先向左推演
+            for(int index = middleCarrier-2;index >=0;index--)
+            {
+                //前方车辆等差数量间距
+                int goal= carrierPos.at(index+1)-((middleCarrier-index-1)*rate+1)*RFID_BASE_DEV;
+                str =MOV_Translate(carrierPos,index+1,1,goal);
+                outList.append(str);
+                str.clear();
+            }
+
+            //再向右推演
+            for(int index = middleCarrier;index <carrierPos.count();index++)
+            {
+                //后续车辆等差数量间距
+                int goal=carrierPos.at(index-1)+((index-middleCarrier+1)*rate+1)*RFID_BASE_DEV;
+                str = MOV_Translate(carrierPos,index+1,1,goal);
+                outList.append(str);
+                str.clear();
+            }
 
             break;
         }
         case INSTRUCT_ALIGN_TAIL:
         {
-            if((carreirGroupLen) > (int(carrierPos.last()/RFID_BASE_DEV)))
+            if((carreirGroupLen_HeadAndTail) > (int(carrierPos.last()/RFID_BASE_DEV)))
             {
                 qDebug()<<"膨胀尾对齐超长";
                 return outList;
